@@ -1,5 +1,7 @@
 package arreglos.tienda.modelo;
 
+import utilitario.Valida;
+
 import javax.swing.*;
 import java.util.Scanner;
 
@@ -128,8 +130,8 @@ public class MainTienda {
     public static void ingresarjuegos() {
         System.out.println("*******Ingreso de datos********");
 
-        System.out.print("Ingrese el nombre: ");
-        String nombre = sc.nextLine();
+
+        String nombre = Valida.leerString("Ingrese el nombre");
 
         System.out.print("Ingrese la categoria: ");
         String categoria = sc.nextLine();
