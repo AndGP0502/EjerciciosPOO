@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="InventarioMinimarket">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/InventarioMinimarket.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
