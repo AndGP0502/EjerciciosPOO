@@ -8,65 +8,72 @@ import negocio.PuenteException;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.SpinnerNumberModel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.awt.Window;
+import java.awt.GridLayout;
 import java.time.LocalDate;
 
 /**
- * Formulario para crear un programa de apoyo (RF-04) o editarlo (RF-05).
+ * Formulario para registrar un programa de apoyo (RF-04) o editar uno vigente (RF-05).
+ *
+ * Distribución (BorderLayout): en el centro los campos en dos columnas (etiqueta | campo)
+ * y abajo los botones.
  */
 public class FormularioPrograma extends JDialog {
 
     private GestorProgramas gestor;
     private ProgramaApoyo existente;
 
-    private JTextField campoNombre = new JTextField(22);
+    private JTextField campoNombre = new JTextField(20);
     private JComboBox<String> comboTipo = new JComboBox<>(ProgramaApoyo.TIPOS);
-    private JTextArea areaDescripcion = new JTextArea(3, 22);
-    private JSpinner spinnerCupos = new JSpinner(new SpinnerNumberModel(10, 0, 500, 1));
-    private JTextField campoInicio = new JTextField(10);
-    private JTextField campoFin = new JTextField(10);
+    private JTextField campoDescripcion = new JTextField(20);
+    private JTextField campoCupos = new JTextField(20);
+    private JTextField campoInicio = new JTextField(20);
+    private JTextField campoFin = new JTextField(20);
     private JComboBox<String> comboNivel = new JComboBox<>(Estudiante.NIVELES);
 
-    public FormularioPrograma(Window padre, GestorProgramas gestor, ProgramaApoyo existente) {
-        super(padre, existente == null ? "Registrar programa de apoyo (RF-04)" : "Editar programa de apoyo (RF-05)",
-                ModalityType.APPLICATION_MODAL);
+    public FormularioPrograma(GestorProgramas gestor, ProgramaApoyo existente) {
         this.gestor = gestor;
         this.existente = existente;
+        if (existente == null) {
+            setTitle("Registrar programa de apoyo (RF-04)");
+        } else {
+            setTitle("Editar programa de apoyo (RF-05)");
+        }
+        setModal(true);   // mientras el formulario está abierto no se puede usar la ventana principal
+        setLayout(new BorderLayout());
 
-        JPanel datos = UtilidadesInterfaz.crearSeccion("Datos del programa");
-        areaDescripcion.setLineWrap(true);
-        areaDescripcion.setWrapStyleWord(true);
-        UtilidadesInterfaz.agregarCampo(datos, 0, 0, "Nombre:", campoNombre);
-        UtilidadesInterfaz.agregarCampo(datos, 1, 0, "Tipo de apoyo:", comboTipo);
-        UtilidadesInterfaz.agregarCampo(datos, 2, 0, "Descripción:", new JScrollPane(areaDescripcion));
-        UtilidadesInterfaz.agregarCampo(datos, 3, 0, "Cupos:", spinnerCupos);
-        UtilidadesInterfaz.agregarCampo(datos, 4, 0, "Fecha de inicio (dd/mm/aaaa):", campoInicio);
-        UtilidadesInterfaz.agregarCampo(datos, 5, 0, "Fecha de fin (dd/mm/aaaa):", campoFin);
-        UtilidadesInterfaz.agregarCampo(datos, 6, 0, "Nivel mínimo de riesgo:", comboNivel);
+        // ----- Centro: campos en dos columnas (etiqueta | campo) -----
+        JPanel campos = new JPanel(new GridLayout(0, 2, 5, 5));
+        campos.add(new JLabel("Nombre:"));
+        campos.add(campoNombre);
+        campos.add(new JLabel("Tipo de apoyo:"));
+        campos.add(comboTipo);
+        campos.add(new JLabel("Descripción:"));
+        campos.add(campoDescripcion);
+        campos.add(new JLabel("Cupos:"));
+        campos.add(campoCupos);
+        campos.add(new JLabel("Fecha de inicio (dd/mm/aaaa):"));
+        campos.add(campoInicio);
+        campos.add(new JLabel("Fecha de fin (dd/mm/aaaa):"));
+        campos.add(campoFin);
+        campos.add(new JLabel("Nivel mínimo de riesgo:"));
+        campos.add(comboNivel);
+        add(campos, BorderLayout.CENTER);
 
-        JPanel contenido = new JPanel(new BorderLayout());
-        contenido.add(datos, BorderLayout.CENTER);
-
-        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton botonGuardar = UtilidadesInterfaz.crearBoton("Guardar");
-        JButton botonCancelar = UtilidadesInterfaz.crearBoton("Cancelar");
-        botonGuardar.addActionListener(e -> guardar());
-        botonCancelar.addActionListener(e -> dispose());
+        // ----- Abajo: botones -----
+        JPanel botones = new JPanel(new FlowLayout());
+        JButton botonCancelar = new JButton("Cancelar");
+        JButton botonGuardar = new JButton("Guardar");
         botones.add(botonCancelar);
         botones.add(botonGuardar);
-
-        setLayout(new BorderLayout());
-        add(contenido, BorderLayout.CENTER);
         add(botones, BorderLayout.SOUTH);
-        getRootPane().setDefaultButton(botonGuardar);
+
+        botonGuardar.addActionListener(e -> guardar());
+        botonCancelar.addActionListener(e -> dispose());
 
         if (existente == null) {
             comboNivel.setSelectedItem(Estudiante.NIVEL_MEDIO);   // valor por defecto según RF-04
@@ -74,23 +81,23 @@ public class FormularioPrograma extends JDialog {
         } else {
             campoNombre.setText(existente.getNombre());
             comboTipo.setSelectedItem(existente.getTipo());
-            areaDescripcion.setText(existente.getDescripcion());
-            spinnerCupos.setValue(existente.getCupos());
+            campoDescripcion.setText(existente.getDescripcion());
+            campoCupos.setText(String.valueOf(existente.getCupos()));
             campoInicio.setText(UtilidadesInterfaz.formatear(existente.getFechaInicio()));
             campoFin.setText(UtilidadesInterfaz.formatear(existente.getFechaFin()));
             comboNivel.setSelectedItem(existente.getNivelMinimo());
         }
         pack();
-        setLocationRelativeTo(padre);
+        setLocationRelativeTo(null);
     }
 
     private void guardar() {
         try {
+            int cupos = UtilidadesInterfaz.leerEntero(campoCupos.getText(), "El número de cupos");
+            LocalDate inicio = UtilidadesInterfaz.leerFecha(campoInicio.getText(), "La fecha de inicio");
+            LocalDate fin = UtilidadesInterfaz.leerFecha(campoFin.getText(), "La fecha de fin");
             ProgramaApoyo datos = new ProgramaApoyo(campoNombre.getText().trim(), (String) comboTipo.getSelectedItem(),
-                    areaDescripcion.getText().trim(), (Integer) spinnerCupos.getValue(),
-                    UtilidadesInterfaz.leerFecha(campoInicio.getText(), "La fecha de inicio"),
-                    UtilidadesInterfaz.leerFecha(campoFin.getText(), "La fecha de fin"),
-                    (String) comboNivel.getSelectedItem());
+                    campoDescripcion.getText().trim(), cupos, inicio, fin, (String) comboNivel.getSelectedItem());
             String mensaje;
             if (existente == null) {
                 mensaje = gestor.registrarPrograma(datos);

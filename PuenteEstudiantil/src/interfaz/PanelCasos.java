@@ -9,190 +9,163 @@ import negocio.SistemaPuente;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
-import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.time.LocalDate;
 import java.util.ArrayList;
 
 /**
- * Pantalla del Módulo 3: casos de seguimiento. Permite abrir casos (RF-07), registrar
- * intervenciones y cambiar el estado (RF-08) y consultar el historial con filtros (RF-09).
+ * Pantalla del Módulo 3: casos de seguimiento (RF-07), intervenciones y cambio
+ * de estado (RF-08) y consulta del historial con filtros (RF-09).
+ *
+ * Distribución (BorderLayout): arriba los filtros del historial, en el centro
+ * un área de texto con los resultados y abajo los botones.
  */
 public class PanelCasos extends JPanel {
 
-    private static final String[] COLUMNAS_CASOS = {"N.°", "Estudiante", "Curso", "Nivel de riesgo", "Profesional",
-            "Apertura", "Estado", "Intervenciones", "Última intervención"};
-    private static final String[] COLUMNAS_INTERVENCIONES = {"Fecha", "Tipo de intervención", "Resultado",
-            "Observaciones"};
-
     private SistemaPuente sistema;
     private GestorCasos gestor;
-    private ArrayList<CasoSeguimiento> listaCasos;
 
-    private DefaultTableModel modeloCasos;
-    private DefaultTableModel modeloIntervenciones;
-    private JTable tablaCasos;
     private JTextField campoEstudiante;
     private JComboBox<String> comboProfesional;
+    private JComboBox<String> comboEstado;
     private JTextField campoDesde;
     private JTextField campoHasta;
-    private JComboBox<String> comboEstado;
-    private JLabel etiquetaTotales;
-    private JLabel etiquetaDetalle;
+    private JTextField campoNumero;
     private JButton botonAvisos;
+    private JTextArea area;
 
     public PanelCasos(SistemaPuente sistema) {
         this.sistema = sistema;
-        this.gestor = sistema.getGestorCasos();
-        this.listaCasos = new ArrayList<>();
-        setLayout(new BorderLayout(8, 8));
+        gestor = sistema.getGestorCasos();
+        setLayout(new BorderLayout());
 
-        add(crearFiltros(), BorderLayout.NORTH);
-
-        modeloCasos = UtilidadesInterfaz.crearModelo(COLUMNAS_CASOS);
-        tablaCasos = UtilidadesInterfaz.crearTabla(modeloCasos);
-        tablaCasos.getColumnModel().getColumn(0).setPreferredWidth(40);
-        tablaCasos.getColumnModel().getColumn(1).setPreferredWidth(200);
-        tablaCasos.getColumnModel().getColumn(4).setPreferredWidth(160);
-        tablaCasos.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                cargarIntervenciones();
-            }
-        });
-
-        modeloIntervenciones = UtilidadesInterfaz.crearModelo(COLUMNAS_INTERVENCIONES);
-        JTable tablaIntervenciones = UtilidadesInterfaz.crearTabla(modeloIntervenciones);
-        tablaIntervenciones.getColumnModel().getColumn(0).setPreferredWidth(80);
-        tablaIntervenciones.getColumnModel().getColumn(1).setPreferredWidth(200);
-        tablaIntervenciones.getColumnModel().getColumn(3).setPreferredWidth(420);
-
-        JPanel parteSuperior = new JPanel(new BorderLayout(6, 6));
-        parteSuperior.add(new JScrollPane(tablaCasos), BorderLayout.CENTER);
-        parteSuperior.add(crearBotones(), BorderLayout.SOUTH);
-
-        JPanel parteInferior = new JPanel(new BorderLayout(6, 6));
-        etiquetaDetalle = new JLabel("Intervenciones del caso seleccionado");
-        parteInferior.add(etiquetaDetalle, BorderLayout.NORTH);
-        parteInferior.add(new JScrollPane(tablaIntervenciones), BorderLayout.CENTER);
-
-        JSplitPane division = new JSplitPane(JSplitPane.VERTICAL_SPLIT, parteSuperior, parteInferior);
-        division.setResizeWeight(0.55);
-        add(division, BorderLayout.CENTER);
-
-        etiquetaTotales = new JLabel(" ");
-        add(etiquetaTotales, BorderLayout.SOUTH);
-
-        actualizar();
-    }
-
-    private JPanel crearFiltros() {
-        JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        // ----- Arriba: filtros del historial en dos filas -----
         campoEstudiante = new JTextField(12);
         comboProfesional = new JComboBox<>();
+        comboProfesional.addItem("Todos");
+        for (ProfesionalDece p : sistema.getProfesionales()) {
+            comboProfesional.addItem(p.getNombreCompleto());
+        }
+        comboEstado = new JComboBox<>();
+        comboEstado.addItem("Todos");
+        for (String estado : CasoSeguimiento.ESTADOS) {
+            comboEstado.addItem(estado);
+        }
+        JPanel fila1 = new JPanel(new FlowLayout());
+        fila1.add(new JLabel("Estudiante (nombre o cédula):"));
+        fila1.add(campoEstudiante);
+        fila1.add(new JLabel("Profesional:"));
+        fila1.add(comboProfesional);
+        fila1.add(new JLabel("Estado:"));
+        fila1.add(comboEstado);
+
         campoDesde = new JTextField(8);
         campoHasta = new JTextField(8);
-        String[] estados = new String[CasoSeguimiento.ESTADOS.length + 1];
-        estados[0] = "Todos";
-        System.arraycopy(CasoSeguimiento.ESTADOS, 0, estados, 1, CasoSeguimiento.ESTADOS.length);
-        comboEstado = new JComboBox<>(estados);
-        JButton botonFiltrar = UtilidadesInterfaz.crearBoton("Consultar");
-        JButton botonLimpiar = UtilidadesInterfaz.crearBoton("Limpiar");
-        botonFiltrar.addActionListener(e -> actualizar());
-        botonLimpiar.addActionListener(e -> {
-            campoEstudiante.setText("");
-            comboProfesional.setSelectedIndex(0);
-            campoDesde.setText("");
-            campoHasta.setText("");
-            comboEstado.setSelectedIndex(0);
-            actualizar();
-        });
-        filtros.add(new JLabel("Estudiante:"));
-        filtros.add(campoEstudiante);
-        filtros.add(new JLabel("Profesional:"));
-        filtros.add(comboProfesional);
-        filtros.add(new JLabel("Desde:"));
-        filtros.add(campoDesde);
-        filtros.add(new JLabel("Hasta:"));
-        filtros.add(campoHasta);
-        filtros.add(new JLabel("Estado:"));
-        filtros.add(comboEstado);
-        filtros.add(botonFiltrar);
-        filtros.add(botonLimpiar);
-        return filtros;
-    }
+        JButton botonConsultar = new JButton("Consultar historial");
+        JButton botonLimpiar = new JButton("Limpiar filtros");
+        JPanel fila2 = new JPanel(new FlowLayout());
+        fila2.add(new JLabel("Apertura desde (dd/mm/aaaa):"));
+        fila2.add(campoDesde);
+        fila2.add(new JLabel("hasta:"));
+        fila2.add(campoHasta);
+        fila2.add(botonConsultar);
+        fila2.add(botonLimpiar);
 
-    private JPanel crearBotones() {
-        JPanel botones = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        JButton botonAbrir = UtilidadesInterfaz.crearBoton("Abrir caso");
-        JButton botonIntervencion = UtilidadesInterfaz.crearBoton("Registrar intervención");
-        JButton botonDetalle = UtilidadesInterfaz.crearBoton("Ver detalle del caso");
-        JButton botonHistorial = UtilidadesInterfaz.crearBoton("Historial cronológico");
-        botonAvisos = UtilidadesInterfaz.crearBoton("Avisos al coordinador");
+        JPanel arriba = new JPanel(new GridLayout(2, 1));
+        arriba.add(fila1);
+        arriba.add(fila2);
+        add(arriba, BorderLayout.NORTH);
+
+        // ----- Centro: área de texto donde se muestran los resultados -----
+        area = new JTextArea();
+        area.setEditable(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        add(new JScrollPane(area), BorderLayout.CENTER);
+
+        // ----- Abajo: botones (los de un caso usan el número escrito) -----
+        campoNumero = new JTextField(4);
+        JButton botonAbrir = new JButton("Abrir caso");
+        JButton botonIntervencion = new JButton("Registrar intervención");
+        JButton botonDetalle = new JButton("Ver detalle");
+        botonAvisos = new JButton("Avisos al coordinador");
+        JPanel abajo = new JPanel(new FlowLayout());
+        abajo.add(botonAbrir);
+        abajo.add(new JLabel("N.° de caso:"));
+        abajo.add(campoNumero);
+        abajo.add(botonIntervencion);
+        abajo.add(botonDetalle);
+        abajo.add(botonAvisos);
+        add(abajo, BorderLayout.SOUTH);
+
+        // ----- Qué hace cada botón -----
+        botonConsultar.addActionListener(e -> consultarHistorial());
+        botonLimpiar.addActionListener(e -> limpiarFiltros());
         botonAbrir.addActionListener(e -> abrirCaso());
         botonIntervencion.addActionListener(e -> registrarIntervencion());
         botonDetalle.addActionListener(e -> verDetalle());
-        botonHistorial.addActionListener(e -> verHistorialCronologico());
         botonAvisos.addActionListener(e -> verAvisos());
-        botones.add(botonAbrir);
-        botones.add(botonIntervencion);
-        botones.add(botonDetalle);
-        botones.add(botonHistorial);
-        botones.add(botonAvisos);
-        return botones;
+
+        consultarHistorial();
     }
 
-    /** Aplica los filtros (RF-09) y recarga la tabla de casos. */
-    public void actualizar() {
-        actualizarComboProfesionales();
-        CasoSeguimiento seleccionado = obtenerCasoSeleccionado(false);
+    /** Escribe un texto en el área y vuelve al inicio para que se lea desde arriba. */
+    private void mostrar(String texto) {
+        area.setText(texto);
+        area.setCaretPosition(0);
+    }
+
+    /** RF-09: muestra los casos que cumplen los filtros, cada uno con sus intervenciones en orden de fecha. */
+    private void consultarHistorial() {
+        ArrayList<CasoSeguimiento> lista;
         try {
-            LocalDate desde = UtilidadesInterfaz.leerFechaOpcional(campoDesde.getText(), "La fecha «Desde»");
-            LocalDate hasta = UtilidadesInterfaz.leerFechaOpcional(campoHasta.getText(), "La fecha «Hasta»");
-            listaCasos = gestor.consultarHistorial(campoEstudiante.getText(), obtenerProfesionalFiltro(), desde, hasta,
+            LocalDate desde = UtilidadesInterfaz.leerFechaOpcional(campoDesde.getText(), "La fecha «desde»");
+            LocalDate hasta = UtilidadesInterfaz.leerFechaOpcional(campoHasta.getText(), "La fecha «hasta»");
+            lista = gestor.consultarHistorial(campoEstudiante.getText(), obtenerProfesionalFiltro(), desde, hasta,
                     (String) comboEstado.getSelectedItem());
         } catch (IllegalArgumentException ex) {
             UtilidadesInterfaz.mostrarError(this, ex.getMessage());
             return;
         }
-        modeloCasos.setRowCount(0);
-        for (CasoSeguimiento c : listaCasos) {
-            modeloCasos.addRow(new Object[]{c.getNumero(), c.getEstudiante().getNombreCompleto(),
-                    c.getEstudiante().getCursoCompleto(), c.getEstudiante().getNivelRiesgo(),
-                    c.getProfesional().getNombreCompleto(), UtilidadesInterfaz.formatear(c.getFechaApertura()),
-                    c.getEstado(), c.getIntervenciones().size(),
-                    UtilidadesInterfaz.formatear(c.getFechaUltimaIntervencion())});
+        String texto = "HISTORIAL DE CASOS (RF-09)\n\n";
+        for (CasoSeguimiento c : lista) {
+            texto += "CASO N.° " + c.getNumero() + " – " + c.getEstudiante().getNombreCompleto() + " – "
+                    + c.getEstudiante().getCursoCompleto() + " – Riesgo " + c.getEstudiante().getNivelRiesgo()
+                    + " – Estado: " + c.getEstado() + " – Profesional: " + c.getProfesional().getNombreCompleto() + "\n";
+            texto += "  " + UtilidadesInterfaz.formatear(c.getFechaApertura()) + "  Apertura del caso: "
+                    + c.getMotivoDeteccion() + "\n";
+            for (Intervencion i : c.getIntervencionesOrdenadas()) {
+                texto += "  " + UtilidadesInterfaz.formatear(i.getFecha()) + "  " + i.getTipo() + " – "
+                        + i.getResultado() + ": " + i.getObservaciones() + "\n";
+            }
+            if (!c.estaAbierto()) {
+                texto += "  " + UtilidadesInterfaz.formatear(c.getFechaCierre()) + "  Cierre (" + c.getEstado() + "): "
+                        + c.getObservacionFinal() + "\n";
+            }
+            texto += "\n";
         }
-        int indice = listaCasos.indexOf(seleccionado);
-        if (indice >= 0) {
-            tablaCasos.setRowSelectionInterval(indice, indice);
-        }
-        cargarIntervenciones();
-        etiquetaTotales.setText("Casos encontrados: " + listaCasos.size() + "   |   Abiertos: "
-                + gestor.contarAbiertos(listaCasos) + "   |   Cerrados: " + gestor.contarCerrados(listaCasos));
+        texto += "Total de casos: " + lista.size() + " | Abiertos: " + gestor.contarAbiertos(lista)
+                + " | Cerrados: " + gestor.contarCerrados(lista);
+        mostrar(texto);
         botonAvisos.setText("Avisos al coordinador (" + gestor.getAvisosCoordinador().size() + ")");
     }
 
-    private void actualizarComboProfesionales() {
-        Object elegido = comboProfesional.getSelectedItem();
-        comboProfesional.removeAllItems();
-        comboProfesional.addItem("Todos");
-        for (ProfesionalDece p : sistema.getProfesionales()) {
-            comboProfesional.addItem(p.getNombreCompleto());
-        }
-        if (elegido != null) {
-            comboProfesional.setSelectedItem(elegido);
-        }
+    private void limpiarFiltros() {
+        campoEstudiante.setText("");
+        comboProfesional.setSelectedIndex(0);
+        comboEstado.setSelectedIndex(0);
+        campoDesde.setText("");
+        campoHasta.setText("");
+        consultarHistorial();
     }
 
+    /** La posición 0 del combo es "Todos"; las demás siguen el orden de la lista de profesionales. */
     private ProfesionalDece obtenerProfesionalFiltro() {
         int indice = comboProfesional.getSelectedIndex();
         if (indice <= 0) {
@@ -201,39 +174,32 @@ public class PanelCasos extends JPanel {
         return sistema.getProfesionales().get(indice - 1);
     }
 
-    private void cargarIntervenciones() {
-        modeloIntervenciones.setRowCount(0);
-        CasoSeguimiento c = obtenerCasoSeleccionado(false);
-        if (c == null) {
-            etiquetaDetalle.setText("Intervenciones del caso seleccionado");
-            return;
-        }
-        for (Intervencion i : c.getIntervencionesOrdenadas()) {
-            modeloIntervenciones.addRow(new Object[]{UtilidadesInterfaz.formatear(i.getFecha()), i.getTipo(),
-                    i.getResultado(), i.getObservaciones()});
-        }
-        etiquetaDetalle.setText("Intervenciones del caso N.° " + c.getNumero() + " – "
-                + c.getEstudiante().getNombreCompleto() + " (" + c.getEstado() + ")");
-    }
-
-    private CasoSeguimiento obtenerCasoSeleccionado(boolean avisar) {
-        int fila = tablaCasos == null ? -1 : tablaCasos.getSelectedRow();
-        if (fila < 0 || fila >= listaCasos.size()) {
-            if (avisar) {
-                UtilidadesInterfaz.mostrarError(this, "Seleccione un caso de la tabla.");
-            }
+    /** Busca el caso con el número escrito abajo. Devuelve null y avisa si no existe. */
+    private CasoSeguimiento leerCaso() {
+        int numero;
+        try {
+            numero = UtilidadesInterfaz.leerEntero(campoNumero.getText(), "El número de caso");
+        } catch (IllegalArgumentException ex) {
+            UtilidadesInterfaz.mostrarError(this, ex.getMessage());
             return null;
         }
-        return listaCasos.get(fila);
+        for (CasoSeguimiento c : gestor.getCasos()) {
+            if (c.getNumero() == numero) {
+                return c;
+            }
+        }
+        UtilidadesInterfaz.mostrarError(this, "No existe el caso N.° " + numero + ".");
+        return null;
     }
 
     private void abrirCaso() {
-        new FormularioCaso(SwingUtilities.getWindowAncestor(this), sistema).setVisible(true);
-        actualizar();
+        FormularioCaso formulario = new FormularioCaso(sistema);
+        formulario.setVisible(true);
+        consultarHistorial();
     }
 
     private void registrarIntervencion() {
-        CasoSeguimiento c = obtenerCasoSeleccionado(true);
+        CasoSeguimiento c = leerCaso();
         if (c == null) {
             return;
         }
@@ -242,16 +208,17 @@ public class PanelCasos extends JPanel {
                     + ") y no admite nuevas intervenciones.");
             return;
         }
-        new FormularioIntervencion(SwingUtilities.getWindowAncestor(this), gestor, c).setVisible(true);
-        actualizar();
+        FormularioIntervencion formulario = new FormularioIntervencion(gestor, c);
+        formulario.setVisible(true);
+        verDetalle();
     }
 
     private void verDetalle() {
-        CasoSeguimiento c = obtenerCasoSeleccionado(true);
+        CasoSeguimiento c = leerCaso();
         if (c == null) {
             return;
         }
-        String texto = "Caso N.° " + c.getNumero()
+        String texto = "DETALLE DEL CASO N.° " + c.getNumero()
                 + "\nEstudiante: " + c.getEstudiante().getNombreCompleto() + " (" + c.getEstudiante().getCedula() + ")"
                 + "\nCurso: " + c.getEstudiante().getCursoCompleto() + " – Riesgo: " + c.getEstudiante().getNivelRiesgo()
                 + "\nProfesional responsable: " + c.getProfesional()
@@ -265,59 +232,28 @@ public class PanelCasos extends JPanel {
         if (c.getObservaciones() != null && !c.getObservaciones().isEmpty()) {
             texto += "\nObservaciones: " + c.getObservaciones();
         }
+        texto += "\n\nINTERVENCIONES (de la más antigua a la más reciente)\n";
+        for (Intervencion i : c.getIntervencionesOrdenadas()) {
+            texto += "  " + UtilidadesInterfaz.formatear(i.getFecha()) + "  " + i.getTipo() + " – "
+                    + i.getResultado() + ": " + i.getObservaciones() + "\n";
+        }
         if (!c.estaAbierto()) {
             texto += "\nFecha de cierre: " + UtilidadesInterfaz.formatear(c.getFechaCierre())
                     + "\nObservación final: " + c.getObservacionFinal();
         }
-        mostrarTexto(texto, "Detalle del caso");
-    }
-
-    /** RF-09: lista cronológica de las intervenciones de los casos que se ven en la tabla. */
-    private void verHistorialCronologico() {
-        if (listaCasos.isEmpty()) {
-            UtilidadesInterfaz.mostrarError(this, "No hay casos con los filtros actuales.");
-            return;
-        }
-        String texto = "";
-        for (CasoSeguimiento c : listaCasos) {
-            texto += "CASO N.° " + c.getNumero() + " – " + c.getEstudiante().getNombreCompleto() + " – Estado: "
-                    + c.getEstado() + " – Profesional: " + c.getProfesional().getNombreCompleto() + "\n";
-            texto += "  " + UtilidadesInterfaz.formatear(c.getFechaApertura()) + "  Apertura del caso: "
-                    + c.getMotivoDeteccion() + "\n";
-            for (Intervencion i : c.getIntervencionesOrdenadas()) {
-                texto += "  " + UtilidadesInterfaz.formatear(i.getFecha()) + "  " + i.getTipo() + " – "
-                        + i.getResultado() + ": " + i.getObservaciones() + "\n";
-            }
-            if (!c.estaAbierto()) {
-                texto += "  " + UtilidadesInterfaz.formatear(c.getFechaCierre()) + "  Cierre (" + c.getEstado() + "): "
-                        + c.getObservacionFinal() + "\n";
-            }
-            texto += "\n";
-        }
-        texto += "Total de casos: " + listaCasos.size() + " | Abiertos: " + gestor.contarAbiertos(listaCasos)
-                + " | Cerrados: " + gestor.contarCerrados(listaCasos);
-        mostrarTexto(texto, "Historial cronológico (RF-09)");
+        mostrar(texto);
+        botonAvisos.setText("Avisos al coordinador (" + gestor.getAvisosCoordinador().size() + ")");
     }
 
     private void verAvisos() {
         ArrayList<String> avisos = gestor.getAvisosCoordinador();
+        String texto = "AVISOS AL COORDINADOR\n\n";
         if (avisos.isEmpty()) {
-            UtilidadesInterfaz.mostrarMensaje(this, "No hay avisos para el coordinador.");
-            return;
+            texto += "No hay avisos para el coordinador.";
         }
-        String texto = "";
         for (String aviso : avisos) {
-            texto += "• " + aviso + "\n";
+            texto += "- " + aviso + "\n";
         }
-        mostrarTexto(texto, "Avisos al coordinador");
-    }
-
-    private void mostrarTexto(String texto, String titulo) {
-        JTextArea area = new JTextArea(texto, 18, 60);
-        area.setEditable(false);
-        area.setLineWrap(true);
-        area.setWrapStyleWord(true);
-        area.setCaretPosition(0);
-        JOptionPane.showMessageDialog(this, new JScrollPane(area), titulo, JOptionPane.PLAIN_MESSAGE);
+        mostrar(texto);
     }
 }

@@ -4,7 +4,6 @@ import negocio.SistemaPuente;
 
 import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
-import java.awt.Dimension;
 
 /**
  * Ventana principal. Tiene una pestaña por cada módulo del sistema;
@@ -12,46 +11,18 @@ import java.awt.Dimension;
  */
 public class VentanaPrincipal extends JFrame {
 
-    private PanelEstudiantes panelEstudiantes;
-    private PanelProgramas panelProgramas;
-    private PanelCasos panelCasos;
-    private PanelAlertas panelAlertas;
-    private PanelRendimiento panelRendimiento;
-
     public VentanaPrincipal(SistemaPuente sistema) {
-        super("Puente Estudiantil – DECE");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1100, 650));
-
-        panelEstudiantes = new PanelEstudiantes(sistema);
-        panelProgramas = new PanelProgramas(sistema);
-        panelCasos = new PanelCasos(sistema);
-        panelAlertas = new PanelAlertas();
-        panelRendimiento = new PanelRendimiento(sistema);
+        setTitle("Puente Estudiantil – DECE");
+        setSize(1150, 650);
+        setLocationRelativeTo(null);                       // centra la ventana en la pantalla
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);    // al cerrar la ventana termina el programa
 
         JTabbedPane pestanas = new JTabbedPane();
-        pestanas.addTab("1. Estudiantes y riesgo", panelEstudiantes);
-        pestanas.addTab("2. Programas de apoyo", panelProgramas);
-        pestanas.addTab("3. Casos de seguimiento", panelCasos);
-        pestanas.addTab("4. Alertas y reportes", panelAlertas);
-        pestanas.addTab("5. Rendimiento académico", panelRendimiento);
-        // Al cambiar de pestaña se recargan los datos, porque otro módulo pudo modificarlos
-        pestanas.addChangeListener(e -> actualizarPestana(pestanas.getSelectedIndex()));
+        pestanas.addTab("1. Estudiantes y riesgo", new PanelEstudiantes(sistema));
+        pestanas.addTab("2. Programas de apoyo", new PanelProgramas(sistema));
+        pestanas.addTab("3. Casos de seguimiento", new PanelCasos(sistema));
+        pestanas.addTab("4. Alertas y reportes", new PanelAlertas());
+        pestanas.addTab("5. Rendimiento académico", new PanelRendimiento(sistema));
         add(pestanas);
-
-        pack();
-        setLocationRelativeTo(null);
-    }
-
-    private void actualizarPestana(int indice) {
-        if (indice == 0) {
-            panelEstudiantes.actualizar();
-        } else if (indice == 1) {
-            panelProgramas.actualizar();
-        } else if (indice == 2) {
-            panelCasos.actualizar();
-        } else if (indice == 4) {
-            panelRendimiento.actualizar();
-        }
     }
 }

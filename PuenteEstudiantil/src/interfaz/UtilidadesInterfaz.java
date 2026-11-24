@@ -1,29 +1,19 @@
 package interfaz;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JTable;
-import javax.swing.ListSelectionModel;
-import javax.swing.table.DefaultTableModel;
 import java.awt.Component;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 
 /**
- * Métodos de apoyo que comparten todas las pantallas: lectura de fechas y números,
- * creación de tablas, botones y mensajes. Así cada panel no repite el mismo código.
+ * Métodos de apoyo que comparten todas las pantallas: lectura de fechas y números
+ * y mensajes al usuario. Así cada panel no repite el mismo código.
  */
 public class UtilidadesInterfaz {
 
+    // STRICT hace que se rechacen fechas que no existen, como 31/02/2026
     public static final DateTimeFormatter FORMATO_FECHA =
             DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
@@ -54,13 +44,16 @@ public class UtilidadesInterfaz {
     }
 
     public static String formatear(LocalDate fecha) {
-        return fecha == null ? "" : fecha.format(FORMATO_FECHA);
+        if (fecha == null) {
+            return "";
+        }
+        return fecha.format(FORMATO_FECHA);
     }
 
     public static int leerEntero(String texto, String campo) {
         try {
             return Integer.parseInt(texto.trim());
-        } catch (NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException e) {
             throw new IllegalArgumentException(campo + " debe ser un número entero.");
         }
     }
@@ -69,55 +62,9 @@ public class UtilidadesInterfaz {
     public static double leerDecimal(String texto, String campo) {
         try {
             return Double.parseDouble(texto.trim().replace(',', '.'));
-        } catch (NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException e) {
             throw new IllegalArgumentException(campo + " debe ser un número (por ejemplo 350,50).");
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Componentes
-    // ------------------------------------------------------------------
-
-    /** Modelo de tabla que no deja editar las celdas con doble clic. */
-    public static DefaultTableModel crearModelo(String[] columnas) {
-        return new DefaultTableModel(columnas, 0) {
-            @Override
-            public boolean isCellEditable(int fila, int columna) {
-                return false;
-            }
-        };
-    }
-
-    /** Tabla en la que solo se puede seleccionar una fila a la vez. */
-    public static JTable crearTabla(DefaultTableModel modelo) {
-        JTable tabla = new JTable(modelo);
-        tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        return tabla;
-    }
-
-    public static JButton crearBoton(String texto) {
-        return new JButton(texto);
-    }
-
-    /** Panel con un título para agrupar los campos de un formulario. */
-    public static JPanel crearSeccion(String titulo) {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder(titulo));
-        return panel;
-    }
-
-    /** Agrega una fila "etiqueta: campo" en un panel con GridBagLayout. */
-    public static void agregarCampo(JPanel panel, int fila, int columna, String etiqueta, JComponent campo) {
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(3, 4, 3, 4);
-        c.gridy = fila;
-        c.gridx = columna * 2;
-        c.anchor = GridBagConstraints.WEST;
-        panel.add(new JLabel(etiqueta), c);
-        c.gridx = columna * 2 + 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1;
-        panel.add(campo, c);
     }
 
     // ------------------------------------------------------------------

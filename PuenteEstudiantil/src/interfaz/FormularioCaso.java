@@ -11,104 +11,86 @@ import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.awt.Window;
+import java.awt.GridLayout;
 import java.time.LocalDate;
-import java.util.ArrayList;
 
 /**
  * Formulario para abrir un caso de seguimiento (RF-07).
- * Si el riesgo del estudiante es Bajo o Medio, avisa que la justificación es obligatoria.
+ * Si el riesgo del estudiante es Bajo o Medio, el gestor exige una justificación.
+ *
+ * Distribución (BorderLayout): en el centro los campos en dos columnas (etiqueta | campo)
+ * y abajo los botones.
  */
 public class FormularioCaso extends JDialog {
 
     private SistemaPuente sistema;
-    private ArrayList<Estudiante> activos;
 
-    private JComboBox<String> comboEstudiante;
-    private JLabel etiquetaRiesgo = new JLabel(" ");
-    private JTextField campoMotivo = new JTextField(28);
+    private JTextField campoCedula = new JTextField(25);
+    private JTextField campoMotivo = new JTextField(25);
     private JComboBox<String> comboProfesional = new JComboBox<>();
-    private JTextField campoFecha = new JTextField(UtilidadesInterfaz.formatear(LocalDate.now()), 10);
-    private JTextArea areaObservaciones = new JTextArea(3, 28);
-    private JTextArea areaJustificacion = new JTextArea(3, 28);
+    private JTextField campoFecha = new JTextField(25);
+    private JTextField campoObservaciones = new JTextField(25);
+    private JTextField campoJustificacion = new JTextField(25);
 
-    public FormularioCaso(Window padre, SistemaPuente sistema) {
-        super(padre, "Abrir caso de seguimiento (RF-07)", ModalityType.APPLICATION_MODAL);
+    public FormularioCaso(SistemaPuente sistema) {
         this.sistema = sistema;
-        this.activos = sistema.getGestorEstudiantes().listarActivos();
+        setTitle("Abrir caso de seguimiento (RF-07)");
+        setModal(true);   // mientras el formulario está abierto no se puede usar la ventana principal
+        setLayout(new BorderLayout());
 
-        String[] nombres = new String[activos.size()];
-        for (int i = 0; i < activos.size(); i++) {
-            nombres[i] = activos.get(i).getNombreCompleto() + " – " + activos.get(i).getCursoCompleto();
-        }
-        comboEstudiante = new JComboBox<>(nombres);
-        comboEstudiante.addActionListener(e -> mostrarRiesgo());
         for (ProfesionalDece p : sistema.getProfesionales()) {
             comboProfesional.addItem(p.toString());
         }
-        areaObservaciones.setLineWrap(true);
-        areaObservaciones.setWrapStyleWord(true);
-        areaJustificacion.setLineWrap(true);
-        areaJustificacion.setWrapStyleWord(true);
+        campoFecha.setText(UtilidadesInterfaz.formatear(LocalDate.now()));
 
-        JPanel datos = UtilidadesInterfaz.crearSeccion("Datos del caso");
-        UtilidadesInterfaz.agregarCampo(datos, 0, 0, "Estudiante:", comboEstudiante);
-        UtilidadesInterfaz.agregarCampo(datos, 1, 0, "Nivel de riesgo:", etiquetaRiesgo);
-        UtilidadesInterfaz.agregarCampo(datos, 2, 0, "Motivo de la detección:", campoMotivo);
-        UtilidadesInterfaz.agregarCampo(datos, 3, 0, "Profesional responsable:", comboProfesional);
-        UtilidadesInterfaz.agregarCampo(datos, 4, 0, "Fecha (dd/mm/aaaa):", campoFecha);
-        UtilidadesInterfaz.agregarCampo(datos, 5, 0, "Observaciones:", new JScrollPane(areaObservaciones));
-        UtilidadesInterfaz.agregarCampo(datos, 6, 0, "Justificación:", new JScrollPane(areaJustificacion));
+        // ----- Centro: campos en dos columnas (etiqueta | campo) -----
+        JPanel campos = new JPanel(new GridLayout(0, 2, 5, 5));
+        campos.add(new JLabel("Cédula del estudiante:"));
+        campos.add(campoCedula);
+        campos.add(new JLabel("Motivo de la detección:"));
+        campos.add(campoMotivo);
+        campos.add(new JLabel("Profesional responsable:"));
+        campos.add(comboProfesional);
+        campos.add(new JLabel("Fecha de apertura (dd/mm/aaaa):"));
+        campos.add(campoFecha);
+        campos.add(new JLabel("Observaciones:"));
+        campos.add(campoObservaciones);
+        campos.add(new JLabel("Justificación (si el riesgo es Bajo o Medio):"));
+        campos.add(campoJustificacion);
+        add(campos, BorderLayout.CENTER);
 
-        JPanel contenido = new JPanel(new BorderLayout());
-        contenido.add(datos, BorderLayout.CENTER);
-
-        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton botonGuardar = UtilidadesInterfaz.crearBoton("Abrir caso");
-        JButton botonCancelar = UtilidadesInterfaz.crearBoton("Cancelar");
-        botonGuardar.addActionListener(e -> guardar());
-        botonCancelar.addActionListener(e -> dispose());
+        // ----- Abajo: botones -----
+        JPanel botones = new JPanel(new FlowLayout());
+        JButton botonCancelar = new JButton("Cancelar");
+        JButton botonGuardar = new JButton("Abrir caso");
         botones.add(botonCancelar);
         botones.add(botonGuardar);
-
-        setLayout(new BorderLayout());
-        add(contenido, BorderLayout.CENTER);
         add(botones, BorderLayout.SOUTH);
-        mostrarRiesgo();
-        pack();
-        setLocationRelativeTo(padre);
-    }
 
-    private void mostrarRiesgo() {
-        int indice = comboEstudiante.getSelectedIndex();
-        if (indice < 0) {
-            etiquetaRiesgo.setText("No hay estudiantes activos.");
-            return;
-        }
-        Estudiante e = activos.get(indice);
-        if (e.tieneRiesgoAltoOCritico()) {
-            etiquetaRiesgo.setText(e.getNivelRiesgo() + " – el caso se abre de forma directa.");
-        } else {
-            etiquetaRiesgo.setText(e.getNivelRiesgo() + " – escriba una justificación (obligatoria).");
-        }
+        botonGuardar.addActionListener(e -> guardar());
+        botonCancelar.addActionListener(e -> dispose());
+
+        pack();
+        setLocationRelativeTo(null);
     }
 
     private void guardar() {
         try {
-            int indiceEstudiante = comboEstudiante.getSelectedIndex();
-            int indiceProfesional = comboProfesional.getSelectedIndex();
-            Estudiante estudiante = indiceEstudiante < 0 ? null : activos.get(indiceEstudiante);
-            ProfesionalDece profesional = indiceProfesional < 0 ? null : sistema.getProfesionales().get(indiceProfesional);
+            Estudiante estudiante = sistema.getGestorEstudiantes().obtenerEstudiante(campoCedula.getText().trim());
+            // La posición elegida en el combo es la misma que en la lista de profesionales
+            ProfesionalDece profesional = null;
+            if (comboProfesional.getSelectedIndex() >= 0) {
+                profesional = sistema.getProfesionales().get(comboProfesional.getSelectedIndex());
+            }
             LocalDate fecha = UtilidadesInterfaz.leerFecha(campoFecha.getText(), "La fecha de apertura");
             CasoSeguimiento caso = sistema.getGestorCasos().abrirCaso(estudiante, campoMotivo.getText(), profesional,
-                    fecha, areaObservaciones.getText().trim(), areaJustificacion.getText().trim());
+                    fecha, campoObservaciones.getText().trim(), campoJustificacion.getText().trim());
             UtilidadesInterfaz.mostrarMensaje(this, "Caso N.° " + caso.getNumero() + " abierto para "
-                    + estudiante.getNombreCompleto() + " en estado " + caso.getEstado() + ".");
+                    + estudiante.getNombreCompleto() + " (riesgo " + estudiante.getNivelRiesgo() + ") en estado "
+                    + caso.getEstado() + ".");
             dispose();
         } catch (PuenteException | IllegalArgumentException ex) {
             UtilidadesInterfaz.mostrarError(this, ex.getMessage());

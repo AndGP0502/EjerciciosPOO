@@ -7,18 +7,13 @@ import negocio.GestorRendimiento;
 import negocio.PuenteException;
 import negocio.SistemaPuente;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
-import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
@@ -26,130 +21,100 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 
 /**
- * Pantalla del Módulo 5: rendimiento académico. Permite registrar notas por periodo (RF-13),
- * consultarlas, corregirlas o eliminarlas (RF-14) y detectar el bajo rendimiento (RF-15).
+ * Pantalla del Módulo 5: registro de notas por periodo (RF-13), corrección y eliminación (RF-14)
+ * y detección de bajo rendimiento con acciones sugeridas (RF-15).
+ *
+ * Distribución (BorderLayout): arriba el periodo y los datos de la nota, en el centro
+ * un área de texto con los resultados y abajo los botones.
  */
 public class PanelRendimiento extends JPanel {
 
-    private static final String[] COLUMNAS_ESTUDIANTES = {"Estudiante", "Curso", "Riesgo", "Promedio",
-            "Notas bajo 7", "Rendimiento"};
-    private static final String[] COLUMNAS_NOTAS = {"Asignatura", "Nota", "Situación", "Fecha de registro"};
-
     private GestorRendimiento gestor;
     private GestorEstudiantes gestorEstudiantes;
-    private ArrayList<Estudiante> listaEstudiantes;
-    private ArrayList<Calificacion> listaNotas;
-    private boolean soloQueRequierenAtencion;
 
-    private DefaultTableModel modeloEstudiantes;
-    private DefaultTableModel modeloNotas;
-    private JTable tablaEstudiantes;
-    private JTable tablaNotas;
     private JTextField campoAnio;
     private JComboBox<String> comboPeriodo;
     private JComboBox<String> comboCurso;
-    private JLabel etiquetaNotas;
-    private JLabel etiquetaResumen;
-    private JTextArea areaRecomendacion;
+    private JTextField campoCedula;
+    private JComboBox<String> comboAsignatura;
+    private JTextField campoNota;
+    private JTextArea area;
 
     public PanelRendimiento(SistemaPuente sistema) {
-        this.gestor = sistema.getGestorRendimiento();
-        this.gestorEstudiantes = sistema.getGestorEstudiantes();
-        this.listaEstudiantes = new ArrayList<>();
-        this.listaNotas = new ArrayList<>();
-        setLayout(new BorderLayout(8, 8));
+        gestor = sistema.getGestorRendimiento();
+        gestorEstudiantes = sistema.getGestorEstudiantes();
+        setLayout(new BorderLayout());
 
-        add(crearFiltros(), BorderLayout.NORTH);
-
-        modeloEstudiantes = UtilidadesInterfaz.crearModelo(COLUMNAS_ESTUDIANTES);
-        tablaEstudiantes = UtilidadesInterfaz.crearTabla(modeloEstudiantes);
-        tablaEstudiantes.getColumnModel().getColumn(0).setPreferredWidth(230);
-        tablaEstudiantes.getColumnModel().getColumn(1).setPreferredWidth(85);
-        tablaEstudiantes.getColumnModel().getColumn(2).setPreferredWidth(65);
-        tablaEstudiantes.getColumnModel().getColumn(3).setPreferredWidth(65);
-        tablaEstudiantes.getColumnModel().getColumn(4).setPreferredWidth(80);
-        tablaEstudiantes.getColumnModel().getColumn(5).setPreferredWidth(125);
-        tablaEstudiantes.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                cargarNotas();
-            }
-        });
-
-        modeloNotas = UtilidadesInterfaz.crearModelo(COLUMNAS_NOTAS);
-        tablaNotas = UtilidadesInterfaz.crearTabla(modeloNotas);
-        tablaNotas.getColumnModel().getColumn(0).setPreferredWidth(170);
-        tablaNotas.getColumnModel().getColumn(2).setPreferredWidth(120);
-
-        JPanel parteDerecha = new JPanel(new BorderLayout(6, 6));
-        etiquetaNotas = new JLabel("Notas del estudiante seleccionado");
-        parteDerecha.add(etiquetaNotas, BorderLayout.NORTH);
-        parteDerecha.add(new JScrollPane(tablaNotas), BorderLayout.CENTER);
-        JPanel abajo = new JPanel(new BorderLayout(4, 4));
-        abajo.add(crearBotonesNotas(), BorderLayout.NORTH);
-        areaRecomendacion = new JTextArea(5, 30);
-        areaRecomendacion.setEditable(false);
-        areaRecomendacion.setLineWrap(true);
-        areaRecomendacion.setWrapStyleWord(true);
-        JScrollPane panelRecomendacion = new JScrollPane(areaRecomendacion);
-        panelRecomendacion.setBorder(BorderFactory.createTitledBorder("Acciones sugeridas (RF-15)"));
-        abajo.add(panelRecomendacion, BorderLayout.CENTER);
-        parteDerecha.add(abajo, BorderLayout.SOUTH);
-
-        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(tablaEstudiantes),
-                parteDerecha);
-        division.setResizeWeight(0.55);
-        add(division, BorderLayout.CENTER);
-
-        etiquetaResumen = new JLabel(" ");
-        add(etiquetaResumen, BorderLayout.SOUTH);
-
-        actualizar();
-    }
-
-    private JPanel crearFiltros() {
-        JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        // ----- Arriba: fila 1 con el periodo y el curso, fila 2 con los datos de la nota -----
         campoAnio = new JTextField("2026-2027", 8);
         comboPeriodo = new JComboBox<>(new String[]{"1", "2", "3"});
-        String[] cursos = new String[UtilidadesInterfaz.CURSOS.length + 1];
-        cursos[0] = "Todos";
-        System.arraycopy(UtilidadesInterfaz.CURSOS, 0, cursos, 1, UtilidadesInterfaz.CURSOS.length);
-        comboCurso = new JComboBox<>(cursos);
-        JButton botonTodos = UtilidadesInterfaz.crearBoton("Ver todos");
-        JButton botonDetectar = UtilidadesInterfaz.crearBoton("Detectar bajo rendimiento");
-        botonTodos.addActionListener(e -> {
-            soloQueRequierenAtencion = false;
-            actualizar();
-        });
-        botonDetectar.addActionListener(e -> {
-            soloQueRequierenAtencion = true;
-            actualizar();
-        });
-        comboPeriodo.addActionListener(e -> actualizar());
-        comboCurso.addActionListener(e -> actualizar());
-        campoAnio.addActionListener(e -> actualizar());
-        filtros.add(new JLabel("Año lectivo:"));
-        filtros.add(campoAnio);
-        filtros.add(new JLabel("Periodo académico:"));
-        filtros.add(comboPeriodo);
-        filtros.add(new JLabel("Curso:"));
-        filtros.add(comboCurso);
-        filtros.add(botonTodos);
-        filtros.add(botonDetectar);
-        return filtros;
-    }
+        comboCurso = new JComboBox<>();
+        comboCurso.addItem("Todos");
+        for (String curso : UtilidadesInterfaz.CURSOS) {
+            comboCurso.addItem(curso);
+        }
+        JButton botonTodos = new JButton("Ver todos");
+        JButton botonDetectar = new JButton("Detectar bajo rendimiento");
+        JPanel fila1 = new JPanel(new FlowLayout());
+        fila1.add(new JLabel("Año lectivo:"));
+        fila1.add(campoAnio);
+        fila1.add(new JLabel("Periodo:"));
+        fila1.add(comboPeriodo);
+        fila1.add(new JLabel("Curso:"));
+        fila1.add(comboCurso);
+        fila1.add(botonTodos);
+        fila1.add(botonDetectar);
 
-    private JPanel crearBotonesNotas() {
-        JPanel botones = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        JButton botonRegistrar = UtilidadesInterfaz.crearBoton("Registrar nota");
-        JButton botonCorregir = UtilidadesInterfaz.crearBoton("Corregir nota");
-        JButton botonEliminar = UtilidadesInterfaz.crearBoton("Eliminar nota");
+        campoCedula = new JTextField(12);
+        comboAsignatura = new JComboBox<>(GestorRendimiento.ASIGNATURAS);
+        campoNota = new JTextField(5);
+        JPanel fila2 = new JPanel(new FlowLayout());
+        fila2.add(new JLabel("Cédula del estudiante:"));
+        fila2.add(campoCedula);
+        fila2.add(new JLabel("Asignatura:"));
+        fila2.add(comboAsignatura);
+        fila2.add(new JLabel("Nota (0 a 10):"));
+        fila2.add(campoNota);
+
+        JPanel arriba = new JPanel(new GridLayout(2, 1));
+        arriba.add(fila1);
+        arriba.add(fila2);
+        add(arriba, BorderLayout.NORTH);
+
+        // ----- Centro: área de texto donde se muestran los resultados -----
+        area = new JTextArea();
+        area.setEditable(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        add(new JScrollPane(area), BorderLayout.CENTER);
+
+        // ----- Abajo: botones -----
+        JButton botonVerNotas = new JButton("Ver notas del estudiante");
+        JButton botonRegistrar = new JButton("Registrar nota");
+        JButton botonCorregir = new JButton("Corregir nota");
+        JButton botonEliminar = new JButton("Eliminar nota");
+        JPanel abajo = new JPanel(new FlowLayout());
+        abajo.add(botonVerNotas);
+        abajo.add(botonRegistrar);
+        abajo.add(botonCorregir);
+        abajo.add(botonEliminar);
+        add(abajo, BorderLayout.SOUTH);
+
+        // ----- Qué hace cada botón -----
+        botonTodos.addActionListener(e -> verTodos());
+        botonDetectar.addActionListener(e -> detectarBajoRendimiento());
+        botonVerNotas.addActionListener(e -> verNotas());
         botonRegistrar.addActionListener(e -> registrarNota());
         botonCorregir.addActionListener(e -> corregirNota());
         botonEliminar.addActionListener(e -> eliminarNota());
-        botones.add(botonRegistrar);
-        botones.add(botonCorregir);
-        botones.add(botonEliminar);
-        return botones;
+
+        verTodos();
+    }
+
+    /** Escribe un texto en el área y vuelve al inicio para que se lea desde arriba. */
+    private void mostrar(String texto) {
+        area.setText(texto);
+        area.setCaretPosition(0);
     }
 
     private String getAnio() {
@@ -160,152 +125,132 @@ public class PanelRendimiento extends JPanel {
         return comboPeriodo.getSelectedIndex() + 1;
     }
 
+    /** "Todos" (posición 0) se convierte en texto vacío, que significa "sin filtrar por curso". */
     private String getCurso() {
-        return comboCurso.getSelectedIndex() <= 0 ? "" : (String) comboCurso.getSelectedItem();
+        if (comboCurso.getSelectedIndex() <= 0) {
+            return "";
+        }
+        return (String) comboCurso.getSelectedItem();
     }
 
-    /** Recarga la lista de estudiantes (todos o solo los que requieren atención). */
-    public void actualizar() {
-        if (modeloEstudiantes == null) {
-            return;
-        }
-        Estudiante seleccionado = obtenerEstudianteSeleccionado(false);
-        if (soloQueRequierenAtencion) {
-            listaEstudiantes = gestor.detectarBajoRendimiento(gestorEstudiantes.getEstudiantes(), getCurso(), getAnio(),
-                    getPeriodo());
-        } else {
-            listaEstudiantes = new ArrayList<>();
-            for (Estudiante e : gestorEstudiantes.listarActivos()) {
-                if (getCurso().isEmpty() || e.getCurso().equals(getCurso())) {
-                    listaEstudiantes.add(e);
-                }
-            }
-        }
-        modeloEstudiantes.setRowCount(0);
+    /** Escribe una línea por estudiante con su promedio, sus notas bajo 7 y su clasificación. */
+    private void mostrarLista(String titulo, ArrayList<Estudiante> lista) {
+        String texto = titulo + " – año " + getAnio() + ", periodo " + getPeriodo()
+                + " (nota mínima para aprobar: 7,00)\n\n";
         int bajo = 0;
         int observacion = 0;
-        for (Estudiante e : listaEstudiantes) {
+        for (Estudiante e : lista) {
             String clasificacion = gestor.clasificarRendimiento(e, getAnio(), getPeriodo());
-            boolean tieneNotas = !GestorRendimiento.SIN_CALIFICACIONES.equals(clasificacion);
-            modeloEstudiantes.addRow(new Object[]{e.getNombreCompleto(), e.getCursoCompleto(),
-                    e.getNivelRiesgo(),
-                    tieneNotas ? String.format("%.2f", gestor.calcularPromedio(e, getAnio(), getPeriodo())) : "–",
-                    tieneNotas ? gestor.contarAsignaturasBajoMinimo(e, getAnio(), getPeriodo()) : "–", clasificacion});
+            texto += e.getNombreCompleto() + " (" + e.getCedula() + ") | " + e.getCursoCompleto()
+                    + " | Riesgo " + e.getNivelRiesgo();
+            if (!GestorRendimiento.SIN_CALIFICACIONES.equals(clasificacion)) {
+                texto += " | Promedio: " + String.format("%.2f", gestor.calcularPromedio(e, getAnio(), getPeriodo()))
+                        + " | Notas bajo 7: " + gestor.contarAsignaturasBajoMinimo(e, getAnio(), getPeriodo());
+            }
+            texto += " | " + clasificacion + "\n";
             if (GestorRendimiento.RENDIMIENTO_BAJO.equals(clasificacion)) {
                 bajo++;
             } else if (GestorRendimiento.RENDIMIENTO_EN_OBSERVACION.equals(clasificacion)) {
                 observacion++;
             }
         }
-        int indice = listaEstudiantes.indexOf(seleccionado);
-        if (indice >= 0) {
-            tablaEstudiantes.setRowSelectionInterval(indice, indice);
-        }
-        cargarNotas();
-        etiquetaResumen.setText((soloQueRequierenAtencion ? "Estudiantes que requieren atención: " : "Estudiantes activos: ")
-                + listaEstudiantes.size() + "   |   Bajo rendimiento: " + bajo + "   |   En observación: " + observacion
-                + "   |   Nota mínima para aprobar: 7,00");
+        texto += "\nTotal: " + lista.size() + " | Bajo rendimiento: " + bajo + " | En observación: " + observacion;
+        mostrar(texto);
     }
 
-    private void cargarNotas() {
-        modeloNotas.setRowCount(0);
-        listaNotas = new ArrayList<>();
-        Estudiante e = obtenerEstudianteSeleccionado(false);
-        if (e == null) {
-            etiquetaNotas.setText("Notas del estudiante seleccionado");
-            areaRecomendacion.setText("Seleccione un estudiante para ver sus notas y las acciones sugeridas.");
-            return;
-        }
-        listaNotas = gestor.buscarCalificaciones(e, getAnio(), getPeriodo());
-        for (Calificacion c : listaNotas) {
-            modeloNotas.addRow(new Object[]{c.getAsignatura(), String.format("%.2f", c.getNota()),
-                    c.estaBajoMinimo() ? "Alerta temprana" : "Aprobada",
-                    UtilidadesInterfaz.formatear(c.getFechaRegistro())});
-        }
-        etiquetaNotas.setText("Notas de " + e.getNombreCompleto() + " – periodo " + getPeriodo());
-        areaRecomendacion.setText(gestor.clasificarRendimiento(e, getAnio(), getPeriodo()) + ". "
-                + gestor.generarRecomendacion(e, getAnio(), getPeriodo()));
-    }
-
-    private Estudiante obtenerEstudianteSeleccionado(boolean avisar) {
-        int fila = tablaEstudiantes == null ? -1 : tablaEstudiantes.getSelectedRow();
-        if (fila < 0 || fila >= listaEstudiantes.size()) {
-            if (avisar) {
-                UtilidadesInterfaz.mostrarError(this, "Seleccione un estudiante de la tabla.");
+    private void verTodos() {
+        ArrayList<Estudiante> lista = new ArrayList<>();
+        for (Estudiante e : gestorEstudiantes.listarActivos()) {
+            if (getCurso().isEmpty() || e.getCurso().equals(getCurso())) {
+                lista.add(e);
             }
-            return null;
         }
-        return listaEstudiantes.get(fila);
+        mostrarLista("ESTUDIANTES ACTIVOS", lista);
     }
 
-    private Calificacion obtenerNotaSeleccionada() {
-        int fila = tablaNotas.getSelectedRow();
-        if (fila < 0 || fila >= listaNotas.size()) {
-            UtilidadesInterfaz.mostrarError(this, "Seleccione una nota de la tabla de la derecha.");
-            return null;
+    private void detectarBajoRendimiento() {
+        mostrarLista("ESTUDIANTES QUE REQUIEREN ATENCIÓN (RF-15)",
+                gestor.detectarBajoRendimiento(gestorEstudiantes.getEstudiantes(), getCurso(), getAnio(), getPeriodo()));
+    }
+
+    /** Muestra las notas del estudiante en el periodo elegido, su promedio y las acciones sugeridas. */
+    private void mostrarNotas(Estudiante e) {
+        String texto = "NOTAS DE " + e.getNombreCompleto() + " – año " + getAnio() + ", periodo " + getPeriodo() + "\n\n";
+        for (Calificacion c : gestor.buscarCalificaciones(e, getAnio(), getPeriodo())) {
+            String situacion = "Aprobada";
+            if (c.estaBajoMinimo()) {
+                situacion = "Alerta temprana";
+            }
+            texto += c.getAsignatura() + ": " + String.format("%.2f", c.getNota()) + " (" + situacion + ")\n";
         }
-        return listaNotas.get(fila);
+        String clasificacion = gestor.clasificarRendimiento(e, getAnio(), getPeriodo());
+        if (!GestorRendimiento.SIN_CALIFICACIONES.equals(clasificacion)) {
+            texto += "\nPromedio: " + String.format("%.2f", gestor.calcularPromedio(e, getAnio(), getPeriodo()));
+        }
+        texto += "\nRendimiento: " + clasificacion
+                + "\n\nAcciones sugeridas: " + gestor.generarRecomendacion(e, getAnio(), getPeriodo());
+        mostrar(texto);
+    }
+
+    // Busca el estudiante con la cédula escrita arriba (lanza un error si no existe)
+    private Estudiante leerEstudiante() throws PuenteException {
+        return gestorEstudiantes.obtenerEstudiante(campoCedula.getText().trim());
+    }
+
+    // Busca la nota de la asignatura elegida en el periodo elegido (lanza un error si no existe)
+    private Calificacion leerCalificacion(Estudiante e) throws PuenteException {
+        String asignatura = (String) comboAsignatura.getSelectedItem();
+        for (Calificacion c : gestor.buscarCalificaciones(e, getAnio(), getPeriodo())) {
+            if (c.getAsignatura().equals(asignatura)) {
+                return c;
+            }
+        }
+        throw new PuenteException(e.getNombreCompleto() + " no tiene nota de " + asignatura + " en ese periodo.");
+    }
+
+    private void verNotas() {
+        try {
+            mostrarNotas(leerEstudiante());
+        } catch (PuenteException ex) {
+            UtilidadesInterfaz.mostrarError(this, ex.getMessage());
+        }
     }
 
     private void registrarNota() {
-        Estudiante e = obtenerEstudianteSeleccionado(true);
-        if (e == null) {
-            return;
-        }
-        JComboBox<String> comboAsignatura = new JComboBox<>(GestorRendimiento.ASIGNATURAS);
-        comboAsignatura.setEditable(true);
-        JTextField campoNota = new JTextField(6);
-        JPanel panel = new JPanel(new GridLayout(0, 1, 4, 4));
-        panel.add(new JLabel("Estudiante: " + e.getNombreCompleto() + " – Año " + getAnio() + ", periodo " + getPeriodo()));
-        panel.add(new JLabel("Asignatura:"));
-        panel.add(comboAsignatura);
-        panel.add(new JLabel("Nota (0 a 10):"));
-        panel.add(campoNota);
-        int opcion = JOptionPane.showConfirmDialog(this, panel, "Registrar nota (RF-13)", JOptionPane.OK_CANCEL_OPTION);
-        if (opcion != JOptionPane.OK_OPTION) {
-            return;
-        }
         try {
+            Estudiante e = leerEstudiante();
             double nota = UtilidadesInterfaz.leerDecimal(campoNota.getText(), "La nota");
-            String asignatura = String.valueOf(comboAsignatura.getSelectedItem());
+            String asignatura = (String) comboAsignatura.getSelectedItem();
             UtilidadesInterfaz.mostrarMensaje(this, gestor.registrarCalificacion(e, getAnio(), getPeriodo(), asignatura,
                     nota, LocalDate.now()));
-            actualizar();
+            mostrarNotas(e);
         } catch (PuenteException | IllegalArgumentException ex) {
             UtilidadesInterfaz.mostrarError(this, ex.getMessage());
         }
     }
 
     private void corregirNota() {
-        Calificacion c = obtenerNotaSeleccionada();
-        if (c == null) {
-            return;
-        }
-        String texto = JOptionPane.showInputDialog(this, "Nueva nota de " + c.getAsignatura() + " (0 a 10):",
-                String.format("%.2f", c.getNota()));
-        if (texto == null) {
-            return;
-        }
         try {
-            UtilidadesInterfaz.mostrarMensaje(this, gestor.actualizarNota(c, UtilidadesInterfaz.leerDecimal(texto, "La nota")));
-            actualizar();
+            Estudiante e = leerEstudiante();
+            Calificacion c = leerCalificacion(e);
+            double nuevaNota = UtilidadesInterfaz.leerDecimal(campoNota.getText(), "La nota");
+            UtilidadesInterfaz.mostrarMensaje(this, gestor.actualizarNota(c, nuevaNota));
+            mostrarNotas(e);
         } catch (PuenteException | IllegalArgumentException ex) {
             UtilidadesInterfaz.mostrarError(this, ex.getMessage());
         }
     }
 
     private void eliminarNota() {
-        Calificacion c = obtenerNotaSeleccionada();
-        if (c == null) {
-            return;
-        }
-        if (!UtilidadesInterfaz.confirmar(this, "¿Eliminar la nota de " + c.getAsignatura() + " ("
-                + String.format("%.2f", c.getNota()) + ")?")) {
-            return;
-        }
         try {
+            Estudiante e = leerEstudiante();
+            Calificacion c = leerCalificacion(e);
+            if (!UtilidadesInterfaz.confirmar(this, "¿Eliminar la nota de " + c.getAsignatura() + " ("
+                    + String.format("%.2f", c.getNota()) + ") de " + e.getNombreCompleto() + "?")) {
+                return;
+            }
             UtilidadesInterfaz.mostrarMensaje(this, gestor.eliminarCalificacion(c));
-            actualizar();
+            mostrarNotas(e);
         } catch (PuenteException ex) {
             UtilidadesInterfaz.mostrarError(this, ex.getMessage());
         }
